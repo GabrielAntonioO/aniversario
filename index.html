@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#17152b">
+<title>El enigma del regalo</title>
+<style>
+:root{color-scheme:dark;--bg:#11101d;--panel:#201d35;--accent:#ffca62;--text:#fffaf0;--muted:#c7c1da;--danger:#ff9c9c;--good:#9ef0c1}
+*{box-sizing:border-box}
+body{margin:0;min-height:100vh;font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(ellipse at top,#39305b 0,#17152b 48%,#0e0d17 100%);color:var(--text);display:grid;place-items:center;padding:20px}
+main{width:min(100%,680px)}
+.card{background:rgba(32,29,53,.96);border:1px solid #51486e;border-radius:26px;padding:clamp(22px,5vw,42px);box-shadow:0 22px 70px #0007}
+.eyebrow{text-transform:uppercase;letter-spacing:.16em;color:var(--accent);font-size:.78rem;font-weight:800}
+h1{font-size:clamp(2rem,8vw,3.5rem);line-height:1.04;margin:.6rem 0 1rem}
+p{line-height:1.55;color:var(--muted)}
+.progress{height:8px;background:#45405b;border-radius:20px;overflow:hidden;margin:24px 0}
+.progress span{display:block;height:100%;width:0;background:var(--accent);transition:width .3s}
+h2{font-size:1.35rem;margin:1.2rem 0 .5rem}
+.clue{font-size:clamp(1.3rem,5vw,1.9rem);font-weight:750;line-height:1.35;color:white;margin:18px 0 24px}
+form{display:flex;gap:10px;flex-wrap:wrap}
+input{flex:1;min-width:150px;background:#100f1b;color:white;border:1px solid #71678f;border-radius:12px;padding:15px 16px;font-size:1.15rem;outline-offset:3px}
+button{border:0;border-radius:12px;padding:14px 17px;font-weight:800;font-size:1rem;cursor:pointer}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent)}
+.primary{background:var(--accent);color:#21182a}
+.secondary{background:#39324f;color:white;border:1px solid #665b83}
+.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px}
+.message{min-height:1.5em;font-weight:650;margin:14px 0 0;color:var(--muted)}
+.message.bad{color:var(--danger)}.message.good{color:var(--good)}
+.small{font-size:.88rem}
+.hidden{display:none!important}
+.final{text-align:center;padding:18px 0}
+.final .emoji{font-size:4rem;animation:bounce 1s infinite alternate}
+.final h1{color:var(--accent);text-shadow:0 0 24px #ffca6270}
+.final h2{font-size:clamp(1.4rem,5vw,2rem)}
+@keyframes bounce{to{transform:translateY(-9px) rotate(5deg)}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+<section class="card" id="game">
+  <div class="eyebrow">Una misión secreta</div>
+  <h1>El enigma del regalo</h1>
+  <div class="progress" aria-label="Progreso del enigma"><span id="progress"></span></div>
+  <div class="eyebrow" id="stepLabel">Objeto 1 de 3</div>
+  <h2 id="heading">Primera pista</h2>
+  <div class="clue" id="clue" aria-live="polite"></div>
+  <form id="codeForm">
+    <input id="code" inputmode="numeric" autocomplete="off" aria-label="Código encontrado" placeholder="Ingresá el código" required>
+    <button class="primary" type="submit">Comprobar código</button>
+  </form>
+  <div class="actions">
+    <button class="secondary" type="button" id="hintBtn">No lo encuentro</button>
+  </div>
+  <p class="message" id="message" role="status" aria-live="polite"></p>
+</section>
+<section class="card final hidden" id="finish" aria-live="polite">
+  <div class="emoji">🎉🛒🎉</div>
+  <div class="eyebrow">Misión cumplida</div>
+  <h1>¡TE FELICITO!</h1>
+  <h2>¡YA RESOLVISTE EL ENIGMA!</h2>
+  <p style="font-size:1.35rem;color:white;font-weight:800">Ahora andá a hacer las compras con el carrito.</p>
+  <div style="font-size:2.5rem;margin-top:16px">🥳 ✨ 🎊 ✨ 🥳</div>
+</section>
+</main>
+<script>
+const stages = [
+  {
+    code: "2310",
+    clues: [
+      "Cuando volvimos de Valdemoro se nos complicó para que quede bien",
+      "Es una parlanchina",
+      "A mí no me lo dejás tocarla"
+    ],
+    reveal: "Fíjate debajo del soporte de Alexa."
+  },
+  {
+    code: "2004",
+    clues: [
+      "Cuando entras a casa, te mira feliz",
+      "Misma raza que nuestra peluda",
+      "Es una beagle que te da la bienvenida"
+    ],
+    reveal: "Revisá en la mesita de entrada, debajo del perrito."
+  },
+  {
+    code: "26",
+    clues: [
+      "Es muuuuy útil",
+      "Ahí tenemos muchas cucharas de madera",
+      "Está en la cocina"
+    ],
+    reveal: "Revisá debajo de la vaca que guarda cucharas de madera en la cocina."
+  }
+];
+let stageIndex=0, clueIndex=0, wrongCount=0, finished=false;
+const $=id=>document.getElementById(id);
+function render(){
+  if(finished)return;
+  const s=stages[stageIndex];
+  $("stepLabel").textContent=`Objeto ${stageIndex+1} de ${stages.length}`;
+  $("heading").textContent=`Pista ${clueIndex+1} de 3`;
+  $("clue").textContent=s.clues[clueIndex];
+  $("progress").style.width=`${(stageIndex/stages.length)*100}%`;
+  $("code").value="";
+  $("code").focus({preventScroll:true});
+  $("message").textContent="";
+  $("message").className="message";
+}
+function nextClue(){
+  const s=stages[stageIndex];
+  wrongCount=0;
+  if(clueIndex<2){
+    clueIndex++;
+    $("message").textContent="Acá va otra pista. ¡Seguí buscando!";
+    $("message").className="message good";
+    renderClueOnly();
+  }else{
+    $("message").textContent=s.reveal;
+    $("message").className="message good";
+    $("heading").textContent="Última ayuda";
+    $("hintBtn").classList.add("hidden");
+  }
+}
+function renderClueOnly(){
+  $("heading").textContent=`Pista ${clueIndex+1} de 3`;
+  $("clue").textContent=stages[stageIndex].clues[clueIndex];
+  $("code").value="";
+}
+function advanceStage(){
+  $("game").querySelector("#continueBtn")?.remove();
+  if(stageIndex===stages.length-1){finish();return;}
+  stageIndex++;clueIndex=0;wrongCount=0;
+  $("codeForm").classList.remove("hidden");
+  $("hintBtn").classList.remove("hidden");
+  render();
+}
+function finish(){
+  finished=true;
+  $("progress").style.width="100%";
+  $("game").classList.add("hidden");
+  $("finish").classList.remove("hidden");
+  document.title="¡Enigma resuelto!";
+}
+$("codeForm").addEventListener("submit",e=>{
+  e.preventDefault(); if(finished)return;
+  const value=$("code").value.trim();
+  const s=stages[stageIndex];
+  if(value===s.code){
+    if(stageIndex===stages.length-1){finish();return;}
+    $("message").textContent="¡Muy bien, lo acertaste! Pasemos al siguiente objeto.";
+    $("message").className="message good";
+    window.setTimeout(()=>{stageIndex++;clueIndex=0;wrongCount=0;render();},850);
+  }else{
+    wrongCount++;
+    if(wrongCount>=3){
+      $("message").textContent="Fallaste tres veces. Te damos otra pista.";
+      $("message").className="message bad";
+      window.setTimeout(nextClue,500);
+    }else{
+      $("message").textContent=`No, ese código es incorrecto. Seguí buscando. (${wrongCount}/3 intentos)`;
+      $("message").className="message bad";
+      $("code").select();
+    }
+  }
+});
+$("hintBtn").addEventListener("click",nextClue);
+render();
+</script>
+</body>
+</html>
